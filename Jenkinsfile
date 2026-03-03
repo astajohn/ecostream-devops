@@ -25,14 +25,6 @@ pipeline {
             }
         }
 
-        stage('Select or Create Workspace') {
-            steps {
-                sh """
-                terraform workspace select ${TF_WORKSPACE} || terraform workspace new ${TF_WORKSPACE}
-                """
-            }
-        }
-
         stage('Terraform Validate') {
             steps {
                 sh 'terraform validate'
