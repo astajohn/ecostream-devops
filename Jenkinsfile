@@ -62,9 +62,22 @@ pipeline {
 
                     sh """
                     echo "Waiting for ASG rolling deployment..."
-                    sleep 90
-                    echo "Checking ALB: http://${alb_dns}"
-                    curl -f http://${alb_dns}
+
+                    for i in {1..20}
+                    do
+                        STATUS=\$(curl -s -o /dev/null -w "%{http_code}" http://${alb_dns} || true)
+                        echo "Attempt \$i - HTTP Status: \$STATUS"
+
+                        if [ "\$STATUS" = "200" ]; then
+                            echo "Application is healthy!"
+                            exit 0
+                        fi
+
+                        sleep 15
+                    done
+
+                    echo "Application did not become healthy in expected time."
+                    exit 1
                     """
                 }
             }
