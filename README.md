@@ -1,5 +1,5 @@
-EcoStream – Production Infrastructure Modernization (AWS)
-
+**EcoStream – Production Infrastructure Modernization (AWS)
+**
 Foundations Engineer Submission – Building a Secure Software Factory
 
 📖 Project Overview
