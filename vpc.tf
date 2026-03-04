@@ -166,20 +166,20 @@ resource "aws_route_table" "private_db_rt" {
   }
 }
 
-# Associate DB Subnet AZ1
+# 8 Associate DB Subnet AZ1
 resource "aws_route_table_association" "private_db_az1_assoc" {
   subnet_id      = aws_subnet.private_db_az1.id
   route_table_id = aws_route_table.private_db_rt.id
 }
 
-# Associate DB Subnet AZ2
+# 9 Associate DB Subnet AZ2
 resource "aws_route_table_association" "private_db_az2_assoc" {
   subnet_id      = aws_subnet.private_db_az2.id
   route_table_id = aws_route_table.private_db_rt.id
 }
 
 
-#8.  Private Route Table - APP
+#10.  Private Route Table - APP
 
 resource "aws_route_table" "private_app_rt" {
   vpc_id = aws_vpc.main.id
@@ -190,28 +190,28 @@ resource "aws_route_table" "private_app_rt" {
   }
 }
 
-# Default route to NAT Gateway
+# 11 Default route to NAT Gateway
 resource "aws_route" "private_app_internet_route" {
   route_table_id         = aws_route_table.private_app_rt.id
   destination_cidr_block = "0.0.0.0/0"
   nat_gateway_id         = aws_nat_gateway.nat.id
 }
 
-# Associate App Subnet AZ1
+#12 Associate App Subnet AZ1
 resource "aws_route_table_association" "private_app_az1_assoc" {
   subnet_id      = aws_subnet.private_app_az1.id
   route_table_id = aws_route_table.private_app_rt.id
 }
 
-# Associate App Subnet AZ2
+#13 Associate App Subnet AZ2
 resource "aws_route_table_association" "private_app_az2_assoc" {
   subnet_id      = aws_subnet.private_app_az2.id
   route_table_id = aws_route_table.private_app_rt.id
 }
 
-# ----------------------------------
-# ALB Security Group
-# ----------------------------------
+
+#14 ALB Security Group
+
 resource "aws_security_group" "alb_sg" {
   name   = "ecostream-${local.environment}-alb-sg"
   #name        = "ecostream-alb-sg"
@@ -240,9 +240,8 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# ----------------------------------
-# App Security Group
-# ----------------------------------
+#15 App Security Group
+
 resource "aws_security_group" "app_sg" {
   name   = "ecostream-${local.environment}-app-sg"
   #name        = "ecostream-app-sg"
@@ -257,7 +256,7 @@ resource "aws_security_group" "app_sg" {
     security_groups = [aws_security_group.alb_sg.id]
   }
 
-  # Optional: Allow SSH via SSM or Bastion if needed
+  
   # DO NOT open SSH to internet
 
   egress {
@@ -274,9 +273,9 @@ resource "aws_security_group" "app_sg" {
   }
 }
 
-# ----------------------------------
-# DB Security Group
-# ----------------------------------
+
+# 16 DB Security Group
+
 resource "aws_security_group" "db_sg" {
   name   = "ecostream-${local.environment}-db-sg"
   #name        = "ecostream-db-sg"
@@ -306,7 +305,7 @@ resource "aws_security_group" "db_sg" {
 }
 
 
-#11. launch template 
+#17. launch template 
 
 resource "aws_launch_template" "app" {
   name_prefix   = "ecostream-${local.environment}-app-"
@@ -335,9 +334,9 @@ EOF
   }
 }
 
-# ----------------------------------
-# Target Group
-# ----------------------------------
+
+# 18 Target Group
+
 resource "aws_lb_target_group" "tg" {
   name     = "ecostream-${local.environment}-tg"
   #name     = "ecostream-tg"
@@ -361,9 +360,9 @@ resource "aws_lb_target_group" "tg" {
   }
 }
 
-# ----------------------------------
-# Application Load Balancer
-# ----------------------------------
+
+#19 Application Load Balancer
+
 resource "aws_lb" "alb" {
   name               = "ecostream-${local.environment}-alb"
   #name               = "ecostream-alb"
@@ -383,9 +382,9 @@ resource "aws_lb" "alb" {
   }
 }
 
-# ----------------------------------
-# Listener
-# ----------------------------------
+
+#20 Listener
+
 resource "aws_lb_listener" "listener" {
   load_balancer_arn = aws_lb.alb.arn
   port              = 80
@@ -432,7 +431,7 @@ resource "aws_autoscaling_group" "asg" {
   }
 }
 
-#DB Subnet Group (Private DB Subnets Only)
+#21DB Subnet Group (Private DB Subnets Only)
 
 resource "aws_db_subnet_group" "db_subnet_group" {
   name = "ecostream-${local.environment}-db-subnet-group"
@@ -449,7 +448,7 @@ resource "aws_db_subnet_group" "db_subnet_group" {
   }
 }
 
-# Production-Ready RDS Multi-AZ
+# 22Production-Ready RDS Multi-AZ
 
 resource "aws_db_instance" "db" {
   identifier            = "ecostream-${local.environment}-db"
@@ -461,7 +460,8 @@ resource "aws_db_instance" "db" {
   storage_type            = "gp2"
 
   username = var.db_username
-  password = var.db_password
+  
+  manage_master_user_password = true
 
   #multi_az               = true
   multi_az            = local.environment == "prod" ? true : false
@@ -469,12 +469,12 @@ resource "aws_db_instance" "db" {
   db_subnet_group_name   = aws_db_subnet_group.db_subnet_group.name
   vpc_security_group_ids = [aws_security_group.db_sg.id]
 
-  # 🔐 Security Best Practices
+  #  Security Best Practices
   storage_encrypted      = true
   deletion_protection = local.environment == "prod" ? true : false
   #deletion_protection    = true
 
-  # 💾 Backup Configuration
+  #  Backup Configuration
   backup_retention_period = 7
   backup_window           = "03:00-04:00"
   maintenance_window      = "Mon:04:00-Mon:05:00"
@@ -490,3 +490,72 @@ resource "aws_db_instance" "db" {
 }
 
 
+# 23Create SNS Topic
+resource "aws_sns_topic" "alerts" {
+  name = "ecostream-${local.environment}-alerts"
+}
+
+#Add Email Subscription
+resource "aws_sns_topic_subscription" "email_alert" {
+  topic_arn = aws_sns_topic.alerts.arn
+  protocol  = "email"
+  endpoint  = "johnp9697@gmail.com"
+}
+
+#Monitor EC2 CPU
+
+resource "aws_cloudwatch_metric_alarm" "high_cpu" {
+  alarm_name          = "ecostream-${local.environment}-high-cpu"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 2
+  metric_name         = "CPUUtilization"
+  namespace           = "AWS/EC2"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 80
+
+  dimensions = {
+    AutoScalingGroupName = aws_autoscaling_group.asg.name
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+
+}
+
+#Monitor ALB 5XX Errors
+
+resource "aws_cloudwatch_metric_alarm" "alb_5xx" {
+  alarm_name          = "ecostream-${local.environment}-alb-5xx"
+  comparison_operator = "GreaterThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "HTTPCode_ELB_5XX_Count"
+  namespace           = "AWS/ApplicationELB"
+  period              = 300
+  statistic           = "Sum"
+  threshold           = 10
+
+  dimensions = {
+    LoadBalancer = aws_lb.alb.arn_suffix
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+}
+
+#Monitor RDS Free Storage
+
+resource "aws_cloudwatch_metric_alarm" "rds_storage" {
+  alarm_name          = "ecostream-${local.environment}-rds-storage-low"
+  comparison_operator = "LessThanThreshold"
+  evaluation_periods  = 1
+  metric_name         = "FreeStorageSpace"
+  namespace           = "AWS/RDS"
+  period              = 300
+  statistic           = "Average"
+  threshold           = 2000000000  # 2GB
+
+  dimensions = {
+    DBInstanceIdentifier = aws_db_instance.db.id
+  }
+
+  alarm_actions = [aws_sns_topic.alerts.arn]
+}
